@@ -1,0 +1,2122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>METEOR DASH — 운석 낙하 피하기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-blue: #00f0ff;
+            --neon-red: #ff2d55;
+            --neon-yellow: #ffe600;
+            --neon-green: #00ff88;
+            --neon-orange: #ff6b00;
+            --neon-purple: #bf5fff;
+            --bg-dark: #05050f;
+            --panel-bg: rgba(0,10,30,0.85);
+            --grid-color: rgba(0,240,255,0.07);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            position: relative;
+        }
+
+        /* 배경 그리드 */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 배경 글로우 오브 */
+        .bg-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+            animation: orbFloat 8s ease-in-out infinite alternate;
+        }
+        .bg-orb-1 { width: 500px; height: 500px; background: var(--neon-blue); top: -150px; left: -100px; animation-delay: 0s; }
+        .bg-orb-2 { width: 400px; height: 400px; background: var(--neon-purple); bottom: -100px; right: -100px; animation-delay: -4s; }
+        .bg-orb-3 { width: 300px; height: 300px; background: var(--neon-red); top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: -2s; }
+
+        @keyframes orbFloat {
+            from { transform: scale(1) translate(0,0); }
+            to { transform: scale(1.2) translate(30px, -20px); }
+        }
+
+        /* 메뉴 */
+        #menuContainer {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .game-title {
+            font-size: 52px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple), var(--neon-red));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 20px rgba(0,240,255,0.5));
+            margin-bottom: 6px;
+            line-height: 1.1;
+        }
+        .game-subtitle {
+            font-size: 13px;
+            color: rgba(0,240,255,0.6);
+            letter-spacing: 8px;
+            margin-bottom: 40px;
+        }
+
+        .step-label {
+            font-size: 11px;
+            letter-spacing: 4px;
+            color: rgba(255,230,0,0.7);
+            margin-bottom: 14px;
+            text-transform: uppercase;
+        }
+        .step-title {
+            font-size: 15px;
+            color: var(--neon-yellow);
+            margin-bottom: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+
+        /* 플레이어 선택 버튼 */
+        .select-btn {
+            position: relative;
+            padding: 14px 28px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 2px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+            overflow: hidden;
+        }
+        .select-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.05));
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .select-btn:hover::before { opacity: 1; }
+        .select-btn:hover {
+            border-color: var(--neon-blue);
+            color: var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0,240,255,0.25), inset 0 0 20px rgba(0,240,255,0.05);
+        }
+        .select-btn.selected {
+            border-color: var(--neon-blue);
+            color: var(--neon-blue);
+            background: rgba(0,240,255,0.1);
+            box-shadow: 0 0 25px rgba(0,240,255,0.4), inset 0 0 25px rgba(0,240,255,0.1);
+        }
+
+        /* 난이도 버튼 */
+        .diff-btn {
+            position: relative;
+            padding: 14px 22px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 10px;
+            letter-spacing: 2px;
+            border: 1px solid;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+            overflow: hidden;
+        }
+        #btn-normal { border-color: var(--neon-green);  color: var(--neon-green);  background: rgba(0,255,136,0.08); }
+        #btn-hard   { border-color: var(--neon-blue);   color: var(--neon-blue);   background: rgba(0,240,255,0.08); }
+        #btn-super  { border-color: var(--neon-yellow); color: var(--neon-yellow); background: rgba(255,230,0,0.08); }
+
+        #btn-normal:hover { box-shadow: 0 0 25px rgba(0,255,136,0.4);  background: rgba(0,255,136,0.15); }
+        #btn-hard:hover   { box-shadow: 0 0 25px rgba(0,240,255,0.4);  background: rgba(0,240,255,0.15); }
+        #btn-super:hover  { box-shadow: 0 0 25px rgba(255,230,0,0.4);  background: rgba(255,230,0,0.15); }
+
+        #difficultySection { display: none; }
+
+        /* 가이드 텍스트 */
+        #guideText {
+            margin-top: 16px;
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 13px;
+            color: rgba(255,255,255,0.45);
+            line-height: 2;
+            text-align: center;
+        }
+        .p1-color { color: var(--neon-blue); font-weight: 700; }
+        .p2-color { color: var(--neon-red); font-weight: 700; }
+        .p3-color { color: var(--neon-yellow); font-weight: 700; }
+
+        /* 게임 래퍼 */
+        #gameWrapper {
+            position: relative;
+            z-index: 10;
+            display: none;
+        }
+
+        /* 캔버스 */
+        #gameCanvas {
+            display: block;
+            border: 1px solid rgba(0,240,255,0.3);
+            box-shadow:
+                0 0 0 1px rgba(0,240,255,0.1),
+                0 0 40px rgba(0,240,255,0.15),
+                0 0 80px rgba(0,240,255,0.05);
+        }
+
+        /* 재시작 버튼 */
+        #restartBtn {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 14px 36px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            background: transparent;
+            color: var(--neon-blue);
+            border: 1px solid var(--neon-blue);
+            clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+            cursor: pointer;
+            display: none;
+            z-index: 20;
+            transition: all 0.2s;
+            box-shadow: 0 0 20px rgba(0,240,255,0.3);
+        }
+        #restartBtn:hover {
+            background: rgba(0,240,255,0.15);
+            box-shadow: 0 0 40px rgba(0,240,255,0.5);
+        }
+
+        /* 파티클 오버레이 */
+        #particleCanvas {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* ===== 랭킹 패널 ===== */
+        #rankingPanel {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #rankingPanel.show { display: flex; }
+        .rank-box {
+            background: rgba(0,10,30,0.95);
+            border: 1px solid rgba(0,240,255,0.25);
+            box-shadow: 0 0 60px rgba(0,240,255,0.1);
+            padding: 40px 48px;
+            width: 560px;
+            max-height: 90vh;
+            overflow-y: auto;
+            text-align: center;
+        }
+        .rank-title {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            color: var(--neon-yellow);
+            margin-bottom: 6px;
+        }
+        .rank-sub {
+            font-size: 10px;
+            letter-spacing: 4px;
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 28px;
+        }
+        .rank-tabs {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .rank-tab {
+            padding: 8px 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: transparent;
+            color: rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+            clip-path: polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
+        }
+        .rank-tab.active { border-color: var(--neon-blue); color: var(--neon-blue); background: rgba(0,240,255,0.08); }
+        .rank-tab:hover:not(.active) { border-color: rgba(255,255,255,0.4); color: rgba(255,255,255,0.7); }
+        .rank-tab.easy-tab.active   { border-color: var(--neon-green); color: var(--neon-green); background: rgba(0,255,136,0.08); }
+        .rank-tab.normal-tab.active { border-color: var(--neon-blue);  color: var(--neon-blue);  background: rgba(0,240,255,0.08); }
+        .rank-tab.hard-tab.active   { border-color: var(--neon-yellow);color: var(--neon-yellow);background: rgba(255,230,0,0.08); }
+        .rank-list { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        .rank-list th {
+            font-size: 9px; letter-spacing: 3px; color: rgba(255,255,255,0.3);
+            padding: 0 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .rank-list td { padding: 10px 8px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .rank-list tr:last-child td { border-bottom: none; }
+        .rank-num  { color: rgba(255,255,255,0.3); font-size: 11px; width: 32px; }
+        .rank-num.gold   { color: #ffd700; font-weight: 900; font-size: 14px; }
+        .rank-num.silver { color: #c0c0c0; font-weight: 700; }
+        .rank-num.bronze { color: #cd7f32; font-weight: 700; }
+        .rank-score { color: var(--neon-blue); font-weight: 700; text-align: right; }
+        .rank-time  { color: rgba(255,255,255,0.4); font-size: 11px; text-align: right; }
+        .rank-date  { color: rgba(255,255,255,0.25); font-size: 10px; text-align: right; }
+        .rank-name  { color: #fff; text-align: left; }
+        .rank-new-badge {
+            display: inline-block;
+            font-size: 8px; letter-spacing: 1px;
+            background: var(--neon-red); color: #fff;
+            padding: 2px 5px; margin-left: 6px; vertical-align: middle;
+        }
+        .rank-empty { color: rgba(255,255,255,0.2); font-size: 12px; padding: 28px 0; letter-spacing: 2px; }
+        .rank-btn-row { display: flex; gap: 12px; justify-content: center; }
+        .rank-close-btn, .rank-clear-btn {
+            padding: 12px 28px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px; font-weight: 700; letter-spacing: 2px;
+            border: 1px solid; cursor: pointer; background: transparent;
+            clip-path: polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+            transition: all 0.2s;
+        }
+        .rank-close-btn { border-color: var(--neon-blue); color: var(--neon-blue); }
+        .rank-close-btn:hover { background: rgba(0,240,255,0.12); }
+        .rank-clear-btn { border-color: rgba(255,45,85,0.5); color: rgba(255,45,85,0.6); }
+        .rank-clear-btn:hover { border-color: var(--neon-red); color: var(--neon-red); background: rgba(255,45,85,0.08); }
+
+        /* 닉네임 입력 오버레이 */
+        #nicknameOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #nicknameOverlay.show { display: flex; }
+        .nick-box {
+            background: rgba(0,10,30,0.98);
+            border: 1px solid rgba(0,240,255,0.3);
+            box-shadow: 0 0 60px rgba(0,240,255,0.15);
+            padding: 44px 52px;
+            text-align: center;
+            width: 440px;
+        }
+        .nick-title { font-size: 18px; font-weight: 900; letter-spacing: 4px; color: var(--neon-yellow); margin-bottom: 8px; }
+        .nick-score { font-size: 28px; font-weight: 900; color: var(--neon-blue); margin: 16px 0 6px; letter-spacing: 2px; }
+        .nick-time  { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 28px; letter-spacing: 2px; }
+        .nick-label { font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,0.4); margin-bottom: 10px; }
+        .nick-input {
+            width: 100%;
+            background: rgba(0,240,255,0.05);
+            border: 1px solid rgba(0,240,255,0.3);
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            padding: 14px 18px;
+            text-align: center;
+            outline: none;
+            margin-bottom: 20px;
+        }
+        .nick-input:focus { border-color: var(--neon-blue); box-shadow: 0 0 20px rgba(0,240,255,0.2); }
+        .nick-rank-info { font-size: 11px; color: rgba(255,255,255,0.3); margin-bottom: 24px; letter-spacing: 1px; min-height: 18px; }
+        .nick-rank-info.new-record { color: var(--neon-yellow); }
+        .nick-submit {
+            width: 100%;
+            padding: 14px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px; font-weight: 900; letter-spacing: 4px;
+            background: rgba(0,240,255,0.1);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            cursor: pointer;
+            clip-path: polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+        .nick-submit:hover { background: rgba(0,240,255,0.2); box-shadow: 0 0 30px rgba(0,240,255,0.3); }
+        .nick-skip {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px; letter-spacing: 2px;
+            color: rgba(255,255,255,0.25); background: transparent;
+            border: none; cursor: pointer; padding: 8px;
+            transition: color 0.2s;
+        }
+        .nick-skip:hover { color: rgba(255,255,255,0.5); }
+
+        /* ===== 게임 인포바 ===== */
+        #gameInfoBar {
+            width: 1100px;
+            background: rgba(0,5,18,0.92);
+            border: 1px solid rgba(0,240,255,0.12);
+            border-bottom: none;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 18px;
+            gap: 12px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 10;
+        }
+        .infobar-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .infobar-label {
+            font-size: 9px;
+            letter-spacing: 3px;
+            color: rgba(255,230,0,0.5);
+            text-transform: uppercase;
+            margin-right: 4px;
+            white-space: nowrap;
+        }
+        /* 키 뱃지 */
+        .key-group { display: flex; align-items: center; gap: 6px; }
+        .key-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.8);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 3px 8px;
+            letter-spacing: 1px;
+            clip-path: polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);
+        }
+        .key-desc {
+            font-size: 10px;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 1px;
+        }
+        /* 구분선 */
+        .infobar-divider {
+            width: 1px;
+            height: 22px;
+            background: rgba(255,255,255,0.1);
+        }
+        /* 장애물 태그 */
+        .obs-tag { display: flex; align-items: center; gap: 6px; }
+        .obs-rect {
+            width: 14px; height: 14px;
+            display: inline-block; flex-shrink: 0;
+        }
+        .obs-circle {
+            width: 13px; height: 13px;
+            border-radius: 50%;
+            display: inline-block; flex-shrink: 0;
+        }
+        .obs-sky {
+            width: 18px; height: 8px;
+            display: inline-block; flex-shrink: 0;
+        }
+        .obs-desc {
+            font-size: 10px;
+            color: rgba(255,255,255,0.35);
+            white-space: nowrap;
+        }
+        /* 아이템 태그 */
+        .item-tag { display: flex; align-items: center; gap: 6px; }
+        .item-dot {
+            width: 13px; height: 13px;
+            border-radius: 50%;
+            display: inline-block; flex-shrink: 0;
+        }
+        .item-name {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .item-desc {
+            font-size: 10px;
+            color: rgba(255,255,255,0.35);
+        }
+
+        /* ===== 게임 시작 튜토리얼 오버레이 ===== */
+        #tutorialOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #tutorialOverlay.show { display: flex; }
+        .tut-box {
+            background: rgba(0,8,24,0.98);
+            border: 1px solid rgba(0,240,255,0.2);
+            box-shadow: 0 0 80px rgba(0,240,255,0.08);
+            padding: 40px 48px;
+            width: 720px;
+            text-align: center;
+        }
+        .tut-title {
+            font-size: 11px;
+            letter-spacing: 5px;
+            color: rgba(0,240,255,0.5);
+            margin-bottom: 6px;
+        }
+        .tut-head {
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: #fff;
+            margin-bottom: 32px;
+        }
+        .tut-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0;
+            margin-bottom: 32px;
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+        .tut-col {
+            padding: 22px 20px;
+            border-right: 1px solid rgba(255,255,255,0.07);
+            text-align: left;
+        }
+        .tut-col:last-child { border-right: none; }
+        .tut-col-title {
+            font-size: 9px;
+            letter-spacing: 4px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        /* 조작법 키 */
+        .tut-key-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .tut-key {
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.85);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 9px; font-weight: 700;
+            padding: 4px 10px; letter-spacing: 1px;
+            clip-path: polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);
+            white-space: nowrap;
+        }
+        .tut-key-label { font-size: 11px; color: rgba(255,255,255,0.45); font-family: 'Noto Sans KR',sans-serif; }
+        /* 장애물/아이템 행 */
+        .tut-row { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+        .tut-icon-rect  { width:16px; height:16px; flex-shrink:0; }
+        .tut-icon-wide  { width:22px; height:9px;  flex-shrink:0; border-radius:2px; }
+        .tut-icon-circ  { width:15px; height:15px; border-radius:50%; flex-shrink:0; }
+        .tut-icon-item  { width:15px; height:15px; border-radius:50%; flex-shrink:0; }
+        .tut-row-text   { font-size:11px; font-family:'Noto Sans KR',sans-serif; line-height:1.4; }
+        .tut-row-text b { font-size:11px; }
+        .tut-row-sub    { font-size:10px; color:rgba(255,255,255,0.3); display:block; }
+        /* START 버튼 */
+        .tut-start {
+            width: 100%;
+            padding: 16px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px; font-weight: 900; letter-spacing: 6px;
+            background: rgba(0,240,255,0.08);
+            border: 1px solid rgba(0,240,255,0.5);
+            color: var(--neon-blue);
+            cursor: pointer;
+            clip-path: polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .tut-start:hover {
+            background: rgba(0,240,255,0.16);
+            box-shadow: 0 0 40px rgba(0,240,255,0.3);
+            letter-spacing: 8px;
+        }
+        .tut-start::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(0,240,255,0.08), transparent);
+            transform: translateX(-100%);
+            animation: tutSweep 2s ease infinite;
+        }
+        @keyframes tutSweep {
+            0%   { transform: translateX(-100%); }
+            60%  { transform: translateX(100%); }
+            100% { transform: translateX(100%); }
+        }
+        /* 멀티 조작법 섹션 */
+        .tut-player-row {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 8px;
+        }
+        .tut-player-dot {
+            width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+        }
+        .tut-player-label {
+            font-size: 9px; font-weight: 700; letter-spacing: 1px; width: 18px; flex-shrink: 0;
+        }
+        /* 메뉴의 랭킹 버튼 */
+        #menuRankBtn {
+            margin-top: 20px;
+            padding: 10px 28px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px; font-weight: 700; letter-spacing: 3px;
+            background: transparent;
+            border: 1px solid rgba(255,230,0,0.35);
+            color: rgba(255,230,0,0.55);
+            cursor: pointer;
+            clip-path: polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+            transition: all 0.2s;
+        }
+        #menuRankBtn:hover { border-color: var(--neon-yellow); color: var(--neon-yellow); background: rgba(255,230,0,0.06); }
+    </style>
+</head>
+<body>
+
+<canvas id="particleCanvas"></canvas>
+
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+<div class="bg-orb bg-orb-3"></div>
+
+<div id="menuContainer">
+    <div class="game-title">METEOR DASH</div>
+    <div class="game-subtitle">SURVIVE THE COSMIC STORM</div>
+
+    <div id="modeSection">
+        <div class="step-label">— STEP 01 —</div>
+        <div class="step-title">플레이 인원수를 선택하세요</div>
+        <div class="btn-group">
+            <button class="select-btn" onclick="selectMode(1, this)">1 PLAYER</button>
+            <button class="select-btn" onclick="selectMode(2, this)">2 PLAYER</button>
+            <button class="select-btn" onclick="selectMode(3, this)">3 PLAYER</button>
+        </div>
+    </div>
+
+    <div id="difficultySection">
+        <div class="step-label">— STEP 02 —</div>
+        <div class="step-title">난이도를 선택하면 게임이 시작됩니다</div>
+        <div class="btn-group">
+            <button id="btn-normal" class="diff-btn" onclick="clickSpeed('NORMAL')">EASY</button>
+            <button id="btn-hard"   class="diff-btn" onclick="clickSpeed('HARD')">NORMAL</button>
+            <button id="btn-super"  class="diff-btn" onclick="clickSpeed('SUPER HARD')">HARD</button>
+        </div>
+    </div>
+
+    <div id="guideText">플레이 인원수를 선택하시면 알맞은 조작법이 표시됩니다.</div>
+
+    <button id="menuRankBtn" onclick="openRanking()">🏆 RANKING</button>
+</div>
+
+<div id="gameInfoBar">
+    <!-- 조작법 -->
+    <div class="infobar-section">
+        <span class="infobar-label">조작</span>
+        <div class="key-group" id="infoBarKeys">
+            <span class="key-badge">←</span><span class="key-badge">→</span>
+            <span class="key-desc">이동</span>
+            &nbsp;
+            <span class="key-badge">SPACE</span>
+            <span class="key-desc">점프 (이단점프)</span>
+        </div>
+    </div>
+
+    <div class="infobar-divider"></div>
+
+    <!-- 장애물 -->
+    <div class="infobar-section">
+        <span class="infobar-label">장애물</span>
+        <div class="obs-tag">
+            <span class="obs-rect" style="background:#7f8c8d;"></span>
+            <span class="obs-desc">바닥 장애물</span>
+        </div>
+        <div class="obs-tag">
+            <span class="obs-sky" style="background:rgba(255,180,60,0.85);border-radius:3px;"></span>
+            <span class="obs-desc">수평 유성 <span style="color:rgba(255,255,255,0.2);font-size:9px;">(25s~)</span></span>
+        </div>
+        <div class="obs-tag">
+            <span class="obs-circle" style="background:#aaa;"></span>
+            <span class="obs-desc">낙하 운석 <span style="color:rgba(255,255,255,0.2);font-size:9px;">(60s~)</span></span>
+        </div>
+    </div>
+
+    <div class="infobar-divider"></div>
+
+    <!-- 아이템 -->
+    <div class="infobar-section">
+        <span class="infobar-label">아이템</span>
+        <div class="item-tag">
+            <span class="item-dot" style="background:#ff2d55;"></span>
+            <span class="item-name" style="color:#ff2d55;">HP+</span>
+            <span class="item-desc">체력 회복</span>
+        </div>
+        <div class="item-tag">
+            <span class="item-dot" style="background:#ffe600;"></span>
+            <span class="item-name" style="color:#ffe600;">무적</span>
+            <span class="item-desc">5초 무적 &amp; 장애물 파괴</span>
+        </div>
+        <div class="item-tag">
+            <span class="item-dot" style="background:#ff6b00;"></span>
+            <span class="item-name" style="color:#ff6b00;">💣</span>
+            <span class="item-desc">화면 내 장애물 전부 제거</span>
+        </div>
+    </div>
+</div>
+
+<div id="gameWrapper">
+    <canvas id="gameCanvas" width="1100" height="550"></canvas>
+    <button id="restartBtn" onclick="returnToMenu()">← MENU로 돌아가기</button>
+</div>
+
+<!-- 닉네임 입력 오버레이 -->
+<div id="nicknameOverlay">
+    <div class="nick-box">
+        <div class="nick-title">GAME OVER</div>
+        <div class="nick-score" id="nickScore">0</div>
+        <div class="nick-time" id="nickTime">0s SURVIVED</div>
+        <div class="nick-label">— 닉네임을 입력하세요 —</div>
+        <input class="nick-input" id="nickInput" maxlength="12" placeholder="PLAYER" autocomplete="off" />
+        <div class="nick-rank-info" id="nickRankInfo"></div>
+        <button class="nick-submit" onclick="submitScore()">REGISTER →</button>
+        <button class="nick-skip" onclick="skipScore()">등록 없이 계속</button>
+    </div>
+</div>
+
+<!-- 랭킹 패널 -->
+<div id="rankingPanel">
+    <div class="rank-box">
+        <div class="rank-title">🏆 RANKING</div>
+        <div class="rank-sub">BEST 10 PER DIFFICULTY</div>
+        <div class="rank-tabs">
+            <button class="rank-tab easy-tab active"   onclick="switchRankTab('NORMAL')">EASY</button>
+            <button class="rank-tab normal-tab"        onclick="switchRankTab('HARD')">NORMAL</button>
+            <button class="rank-tab hard-tab"          onclick="switchRankTab('SUPER HARD')">HARD</button>
+        </div>
+        <table class="rank-list" id="rankTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th style="text-align:left">NAME</th>
+                    <th style="text-align:right">SCORE</th>
+                    <th style="text-align:right">TIME</th>
+                    <th style="text-align:right">DATE</th>
+                </tr>
+            </thead>
+            <tbody id="rankBody"></tbody>
+        </table>
+        <div class="rank-btn-row">
+            <button class="rank-close-btn" onclick="closeRanking()">CLOSE</button>
+            <button class="rank-clear-btn" onclick="clearRanking()">CLEAR</button>
+        </div>
+    </div>
+</div>
+
+<!-- 게임 시작 튜토리얼 오버레이 -->
+<div id="tutorialOverlay">
+    <div class="tut-box">
+        <div class="tut-title">— HOW TO PLAY —</div>
+        <div class="tut-head">게임 안내</div>
+
+        <div class="tut-grid">
+            <!-- 조작법 -->
+            <div class="tut-col">
+                <div class="tut-col-title" style="color:var(--neon-blue);">⌨ 조작법</div>
+                <div id="tutKeys"><!-- JS로 채움 --></div>
+            </div>
+
+            <!-- 장애물 -->
+            <div class="tut-col">
+                <div class="tut-col-title" style="color:var(--neon-orange);">☄ 장애물</div>
+                <div class="tut-row">
+                    <span class="tut-icon-rect" style="background:#7f8c8d;"></span>
+                    <div class="tut-row-text">
+                        <b style="color:#aaa;">바닥 장애물</b>
+                        <span class="tut-row-sub">점프로 피하세요</span>
+                    </div>
+                </div>
+                <div class="tut-row">
+                    <span class="tut-icon-wide" style="background:rgba(255,180,60,0.9);"></span>
+                    <div class="tut-row-text">
+                        <b style="color:#ffb03c;">수평 유성</b>
+                        <span class="tut-row-sub">25초 후 등장</span>
+                    </div>
+                </div>
+                <div class="tut-row">
+                    <span class="tut-icon-circ" style="background:#999;"></span>
+                    <div class="tut-row-text">
+                        <b style="color:#ccc;">낙하 운석</b>
+                        <span class="tut-row-sub">60초 후 등장</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 아이템 -->
+            <div class="tut-col">
+                <div class="tut-col-title" style="color:var(--neon-green);">★ 아이템</div>
+                <div class="tut-row">
+                    <span class="tut-icon-item" style="background:#ff2d55;"></span>
+                    <div class="tut-row-text">
+                        <b style="color:#ff2d55;">HP+</b>
+                        <span class="tut-row-sub">체력을 1 회복</span>
+                    </div>
+                </div>
+                <div class="tut-row">
+                    <span class="tut-icon-item" style="background:#ffe600;"></span>
+                    <div class="tut-row-text">
+                        <b style="color:#ffe600;">무적</b>
+                        <span class="tut-row-sub">5초 무적 + 장애물 파괴</span>
+                    </div>
+                </div>
+                <div class="tut-row">
+                    <span class="tut-icon-item" style="background:#ff6b00;"></span>
+                    <div class="tut-row-text">
+                        <b style="color:#ff6b00;">💣 폭탄</b>
+                        <span class="tut-row-sub">화면 내 장애물 전부 제거</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button class="tut-start" onclick="startFromTutorial()">▶  START</button>
+    </div>
+</div>
+
+<script>
+/* ===================== RANKING SYSTEM ===================== */
+const RANK_KEY = 'meteorDashRanking_v1';
+const MAX_RANK = 10;
+
+function getRankings() {
+    try { return JSON.parse(localStorage.getItem(RANK_KEY)) || {}; }
+    catch { return {}; }
+}
+function saveRankings(data) {
+    localStorage.setItem(RANK_KEY, JSON.stringify(data));
+}
+
+// 점수 등록: 해당 난이도 상위 MAX_RANK 유지, 삽입된 순위 반환 (없으면 null)
+function registerScore(difficulty, name, score, time) {
+    const all = getRankings();
+    if (!all[difficulty]) all[difficulty] = [];
+    const list = all[difficulty];
+    const now = new Date();
+    const dateStr = `${now.getMonth()+1}/${now.getDate()}`;
+    list.push({ name, score, time, date: dateStr });
+    list.sort((a,b) => b.score - a.score);
+    if (list.length > MAX_RANK) list.splice(MAX_RANK);
+    const rank = list.findIndex(r => r.name === name && r.score === score && r.time === time);
+    all[difficulty] = list;
+    saveRankings(all);
+    return rank + 1; // 1-based
+}
+
+// 점수가 랭킹에 들 수 있는지 확인
+function isRankable(difficulty, score) {
+    const all = getRankings();
+    const list = all[difficulty] || [];
+    if (list.length < MAX_RANK) return true;
+    return score > list[list.length - 1].score;
+}
+
+/* ---- 랭킹 패널 UI ---- */
+let currentRankDiff = 'NORMAL';
+
+function openRanking(diff) {
+    currentRankDiff = diff || 'NORMAL';
+    document.getElementById('rankingPanel').classList.add('show');
+    // 탭 active 세팅
+    document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active'));
+    const tabMap = { 'NORMAL': 0, 'HARD': 1, 'SUPER HARD': 2 };
+    document.querySelectorAll('.rank-tab')[tabMap[currentRankDiff] ?? 0].classList.add('active');
+    renderRankTable(currentRankDiff);
+}
+function closeRanking() {
+    document.getElementById('rankingPanel').classList.remove('show');
+}
+function switchRankTab(diff) {
+    currentRankDiff = diff;
+    document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active'));
+    const tabMap = { 'NORMAL': 0, 'HARD': 1, 'SUPER HARD': 2 };
+    document.querySelectorAll('.rank-tab')[tabMap[diff]].classList.add('active');
+    renderRankTable(diff);
+}
+function clearRanking() {
+    if (!confirm(`[${diffLabel(currentRankDiff)}] 난이도 랭킹을 초기화할까요?`)) return;
+    const all = getRankings();
+    all[currentRankDiff] = [];
+    saveRankings(all);
+    renderRankTable(currentRankDiff);
+}
+
+function diffLabel(d) {
+    return d === 'NORMAL' ? 'EASY' : d === 'HARD' ? 'NORMAL' : 'HARD';
+}
+
+function renderRankTable(diff) {
+    const all = getRankings();
+    const list = all[diff] || [];
+    const tbody = document.getElementById('rankBody');
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="rank-empty">— 기록 없음 —</td></tr>`;
+        return;
+    }
+    const medals = ['gold','silver','bronze'];
+    tbody.innerHTML = list.map((r, i) => {
+        const numClass = medals[i] || '';
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+        const isNew = r._new ? `<span class="rank-new-badge">NEW</span>` : '';
+        return `<tr>
+            <td class="rank-num ${numClass}">${medal}</td>
+            <td class="rank-name">${escHtml(r.name)}${isNew}</td>
+            <td class="rank-score">${r.score.toLocaleString()}</td>
+            <td class="rank-time">${r.time}s</td>
+            <td class="rank-date">${r.date}</td>
+        </tr>`;
+    }).join('');
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ---- 닉네임 입력 오버레이 ---- */
+let _pendingDiff = '', _pendingScore = 0, _pendingTime = 0;
+
+function showNicknameOverlay(difficulty, score, time) {
+    _pendingDiff = difficulty; _pendingScore = score; _pendingTime = time;
+    document.getElementById('nickScore').textContent = score.toLocaleString();
+    document.getElementById('nickTime').textContent  = `${time}s SURVIVED`;
+    const rankable = isRankable(difficulty, score);
+    const info = document.getElementById('nickRankInfo');
+    if (rankable) {
+        info.textContent = `🏆 ${diffLabel(difficulty)} 난이도 TOP ${MAX_RANK} 진입 가능!`;
+        info.className = 'nick-rank-info new-record';
+    } else {
+        info.textContent = `현재 랭킹에 진입하지 못했습니다.`;
+        info.className = 'nick-rank-info';
+    }
+    const inp = document.getElementById('nickInput');
+    inp.value = '';
+    document.getElementById('nicknameOverlay').classList.add('show');
+    setTimeout(() => inp.focus(), 100);
+}
+
+function submitScore() {
+    const raw = document.getElementById('nickInput').value.trim();
+    const name = raw || 'PLAYER';
+    // 새 기록 표시를 위해 _new 플래그 (임시)
+    const all = getRankings();
+    const list = all[_pendingDiff] || [];
+    // 이전 _new 제거
+    list.forEach(r => delete r._new);
+    all[_pendingDiff] = list;
+    saveRankings(all);
+
+    const rank = registerScore(_pendingDiff, name, _pendingScore, _pendingTime);
+    // 방금 등록된 항목에 _new 마킹
+    const all2 = getRankings();
+    if (rank && all2[_pendingDiff][rank-1]) {
+        all2[_pendingDiff][rank-1]._new = true;
+        saveRankings(all2);
+    }
+
+    document.getElementById('nicknameOverlay').classList.remove('show');
+    // 랭킹 패널 열기
+    openRanking(_pendingDiff);
+    showRestartBtn();
+}
+
+function skipScore() {
+    document.getElementById('nicknameOverlay').classList.remove('show');
+    showRestartBtn();
+}
+
+function showRestartBtn() {
+    restartBtn.style.display = 'block';
+}
+
+/* ===================== PARTICLE SYSTEM ===================== */
+const pCanvas = document.getElementById('particleCanvas');
+const pCtx = pCanvas.getContext('2d');
+pCanvas.width = window.innerWidth;
+pCanvas.height = window.innerHeight;
+
+const bgParticles = [];
+for (let i = 0; i < 80; i++) {
+    bgParticles.push({
+        x: Math.random() * pCanvas.width,
+        y: Math.random() * pCanvas.height,
+        size: Math.random() * 1.5 + 0.3,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        alpha: Math.random() * 0.5 + 0.2,
+        color: ['#00f0ff','#bf5fff','#ff2d55'][Math.floor(Math.random()*3)]
+    });
+}
+function animateBgParticles() {
+    pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+    bgParticles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = pCanvas.width;
+        if (p.x > pCanvas.width) p.x = 0;
+        if (p.y < 0) p.y = pCanvas.height;
+        if (p.y > pCanvas.height) p.y = 0;
+        pCtx.beginPath();
+        pCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        pCtx.fillStyle = p.color;
+        pCtx.globalAlpha = p.alpha;
+        pCtx.fill();
+    });
+    pCtx.globalAlpha = 1;
+    requestAnimationFrame(animateBgParticles);
+}
+animateBgParticles();
+
+/* ===================== GAME ENGINE ===================== */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const menuContainer = document.getElementById('menuContainer');
+const difficultySection = document.getElementById('difficultySection');
+const restartBtn = document.getElementById('restartBtn');
+const guideText = document.getElementById('guideText');
+const gameWrapper = document.getElementById('gameWrapper');
+
+const gravity = 0.6;
+let baseGameSpeed = 4, gameSpeed = 4, spawnRate = 0.02;
+let currentDifficulty = "", maxPlayers = 1;
+let gameStartTime = 0, timeElapsed = 0, lastItemSpawnTime = 0;
+let bombActiveTimer = 0, lastGroundSpawnCooldown = 0;
+let player1 = {}, player2 = {}, player3 = {};
+const keys = { p1Left:false,p1Right:false,p2Left:false,p2Right:false,p3Left:false,p3Right:false };
+let obstacles=[], skyObstacles=[], items=[], meteors=[];
+let score=0, gameOver=false, gameStarted=false, animationId;
+
+/* -------- 이펙트 파티클 -------- */
+let effectParticles = [];
+let screenShake = 0;
+let shakeX = 0, shakeY = 0;
+let hitFlash = 0;
+let warnPulse = 0;
+let bgStars = [];
+
+// 배경 별 초기화
+for (let i = 0; i < 120; i++) {
+    bgStars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 1.5 + 0.3,
+        twinkle: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.3 + 0.1
+    });
+}
+
+function spawnHitParticles(x, y, color) {
+    for (let i = 0; i < 20; i++) {
+        const angle = (Math.PI * 2 / 20) * i + Math.random() * 0.3;
+        const speed = 2 + Math.random() * 4;
+        effectParticles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: 3 + Math.random() * 5,
+            color,
+            alpha: 1,
+            life: 40 + Math.random() * 20
+        });
+    }
+}
+function spawnCollectParticles(x, y, color) {
+    for (let i = 0; i < 30; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random() * 5;
+        effectParticles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 2,
+            size: 2 + Math.random() * 4,
+            color,
+            alpha: 1,
+            life: 50 + Math.random() * 30
+        });
+    }
+}
+function spawnMeteorCrashParticles(x, y) {
+    for (let i = 0; i < 35; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 6;
+        effectParticles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: 4 + Math.random() * 8,
+            color: ['#ff6b00','#ff2d55','#ffe600','#ffffff'][Math.floor(Math.random()*4)],
+            alpha: 1,
+            life: 60 + Math.random() * 40
+        });
+    }
+}
+
+// 장애물(바위) 박살 — 회색 돌 파편 + 플레이어 색 충격파
+function spawnObstacleSmashedParticles(x, y, w, h, playerColor) {
+    // 돌 파편 (회색 계열)
+    for (let i = 0; i < 22; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 3 + Math.random() * 7;
+        const col = ['#95a5a6','#bdc3c7','#7f8c8d','#ecf0f1'][Math.floor(Math.random()*4)];
+        effectParticles.push({
+            x: x + Math.random()*w, y: y + Math.random()*h,
+            vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed - 2,
+            size: 4 + Math.random()*7, color: col, alpha: 1,
+            life: 45 + Math.random()*25
+        });
+    }
+    // 플레이어 색 충격파 링
+    for (let i = 0; i < 12; i++) {
+        const angle = (Math.PI*2/12)*i;
+        effectParticles.push({
+            x: x+w/2, y: y+h/2,
+            vx: Math.cos(angle)*5, vy: Math.sin(angle)*5,
+            size: 6, color: playerColor, alpha: 0.85,
+            life: 20
+        });
+    }
+    screenShake = Math.max(screenShake, 10);
+}
+
+// 별똥별 박살 — 흰/노랑/주황 섬광 + 불꽃 파편
+function spawnSkySmashParticles(x, y, playerColor) {
+    for (let i = 0; i < 30; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 8;
+        const col = ['#ffffff','#ffe600','#ffb020','#ff6b00'][Math.floor(Math.random()*4)];
+        effectParticles.push({
+            x, y,
+            vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed - 1,
+            size: 3 + Math.random()*8, color: col, alpha: 1,
+            life: 40 + Math.random()*30
+        });
+    }
+    // 플레이어 색 방사선
+    for (let i = 0; i < 8; i++) {
+        const angle = (Math.PI*2/8)*i;
+        effectParticles.push({
+            x, y,
+            vx: Math.cos(angle)*9, vy: Math.sin(angle)*9,
+            size: 5, color: playerColor, alpha: 0.9,
+            life: 18
+        });
+    }
+    screenShake = Math.max(screenShake, 14);
+    hitFlash = Math.max(hitFlash, 6);
+}
+
+// 운석 박살 — 초대형 폭발 (기존보다 훨씬 화려하게)
+function spawnMeteorSmashedParticles(x, y, playerColor) {
+    for (let i = 0; i < 50; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 3 + Math.random() * 10;
+        const col = ['#ff6b00','#ff2d55','#ffe600','#ffffff','#ffb020'][Math.floor(Math.random()*5)];
+        effectParticles.push({
+            x, y,
+            vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+            size: 5 + Math.random()*10, color: col, alpha: 1,
+            life: 60 + Math.random()*50
+        });
+    }
+    // 플레이어 색 충격 링
+    for (let i = 0; i < 16; i++) {
+        const angle = (Math.PI*2/16)*i;
+        effectParticles.push({
+            x, y,
+            vx: Math.cos(angle)*12, vy: Math.sin(angle)*12,
+            size: 7, color: playerColor, alpha: 1,
+            life: 22
+        });
+    }
+    screenShake = Math.max(screenShake, 22);
+    hitFlash = Math.max(hitFlash, 10);
+}
+
+/* -------- 유틸 -------- */
+function neonColor(color, alpha=1) {
+    return color;
+}
+
+function drawNeonRect(x, y, w, h, color, glowSize=15, glowAlpha=0.4) {
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = glowSize;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = glowAlpha;
+    ctx.strokeRect(x-2, y-2, w+4, h+4);
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = glowSize * 1.5;
+    ctx.fillStyle = color;
+    // 내부를 어둡게
+    const r = parseInt(color.slice(1,3),16), g = parseInt(color.slice(3,5),16), b = parseInt(color.slice(5,7),16);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.2)`;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, w, h);
+    ctx.restore();
+}
+
+function drawGlowText(text, x, y, color, font, align='left', glowSize=12) {
+    ctx.save();
+    ctx.font = font;
+    ctx.textAlign = align;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = glowSize;
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+    ctx.shadowBlur = glowSize * 2;
+    ctx.globalAlpha = 0.5;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+}
+
+/* -------- selectMode / clickSpeed -------- */
+function selectMode(players, element) {
+    maxPlayers = players;
+    document.querySelectorAll('.select-btn').forEach(b => b.classList.remove('selected'));
+    element.classList.add('selected');
+    difficultySection.style.display = 'block';
+    if (maxPlayers === 1) {
+        guideText.innerHTML = `<span class="p1-color">1P (파란 네모)</span> — 좌: [←]  우: [→]  점프: [Spacebar] (이단점프)`;
+    } else if (maxPlayers === 2) {
+        guideText.innerHTML = `<span class="p1-color">1P (파란 네모)</span> — 좌: [\` 키]  우: [1]  점프: [2]<br><span class="p2-color">2P (빨간 네모)</span> — 좌: [←]  우: [→]  점프: [\\] 키`;
+    } else {
+        guideText.innerHTML = `<span class="p1-color">1P</span> — [\`] [1] [2] &nbsp;|&nbsp; <span class="p2-color">2P</span> — [←] [→] [\\] &nbsp;|&nbsp; <span class="p3-color">3P</span> — [B] [N] [M]`;
+    }
+}
+
+function resetPlayers() {
+    player1 = { x:100,y:525,size:26,speed:10,vx:0,vy:0,jumpCount:0,maxJumps:2,lives:3,invincibleTimer:0,isVisible:true,itemInvincibleTimer:0,color:'#00f0ff',active:true,trail:[] };
+    player2 = { x:180,y:525,size:26,speed:10,vx:0,vy:0,jumpCount:0,maxJumps:2,lives:3,invincibleTimer:0,isVisible:true,itemInvincibleTimer:0,color:'#ff2d55',active:(maxPlayers>=2),trail:[] };
+    player3 = { x:260,y:525,size:26,speed:10,vx:0,vy:0,jumpCount:0,maxJumps:2,lives:3,invincibleTimer:0,isVisible:true,itemInvincibleTimer:0,color:'#ffe600',active:(maxPlayers===3),trail:[] };
+}
+
+function clickSpeed(difficulty) {
+    currentDifficulty = difficulty;
+    if (difficulty==='EASY')       { baseGameSpeed=5;  spawnRate=0.015; }
+    else if (difficulty==='NORMAL'){ baseGameSpeed=7;  spawnRate=0.02;  }
+    else if (difficulty==='HARD')  { baseGameSpeed=10; spawnRate=0.025; }
+    else if (difficulty==='SUPER HARD') { baseGameSpeed=14; spawnRate=0.03; }
+    else if (difficulty==='MANIA') { baseGameSpeed=18; spawnRate=0.035; }
+    // 튜토리얼 오버레이 표시
+    menuContainer.style.display = 'none';
+    showTutorial();
+}
+
+function showTutorial() {
+    // 조작법 인원수별 렌더
+    const el = document.getElementById('tutKeys');
+    if (maxPlayers === 1) {
+        el.innerHTML = `
+            <div class="tut-key-row">
+                <span class="tut-key">←</span><span class="tut-key">→</span>
+                <span class="tut-key-label">이동</span>
+            </div>
+            <div class="tut-key-row">
+                <span class="tut-key">SPACE</span>
+                <span class="tut-key-label">점프 (이단점프)</span>
+            </div>`;
+    } else if (maxPlayers === 2) {
+        el.innerHTML = `
+            <div class="tut-player-row">
+                <span class="tut-player-dot" style="background:#00f0ff;"></span>
+                <span class="tut-player-label" style="color:#00f0ff;">1P</span>
+                <span class="tut-key" style="border-color:#00f0ff;color:#00f0ff;">\`</span>
+                <span class="tut-key" style="border-color:#00f0ff;color:#00f0ff;">1</span>
+                <span class="tut-key" style="border-color:#00f0ff;color:#00f0ff;">2</span>
+                <span class="tut-key-label" style="color:rgba(0,240,255,0.5);">좌 / 우 / 점프</span>
+            </div>
+            <div class="tut-player-row">
+                <span class="tut-player-dot" style="background:#ff2d55;"></span>
+                <span class="tut-player-label" style="color:#ff2d55;">2P</span>
+                <span class="tut-key" style="border-color:#ff2d55;color:#ff2d55;">←</span>
+                <span class="tut-key" style="border-color:#ff2d55;color:#ff2d55;">→</span>
+                <span class="tut-key" style="border-color:#ff2d55;color:#ff2d55;">\\</span>
+                <span class="tut-key-label" style="color:rgba(255,45,85,0.5);">좌 / 우 / 점프</span>
+            </div>`;
+    } else {
+        el.innerHTML = `
+            <div class="tut-player-row">
+                <span class="tut-player-dot" style="background:#00f0ff;"></span>
+                <span class="tut-player-label" style="color:#00f0ff;">1P</span>
+                <span class="tut-key" style="border-color:#00f0ff;color:#00f0ff;">\`</span>
+                <span class="tut-key" style="border-color:#00f0ff;color:#00f0ff;">1</span>
+                <span class="tut-key" style="border-color:#00f0ff;color:#00f0ff;">2</span>
+            </div>
+            <div class="tut-player-row">
+                <span class="tut-player-dot" style="background:#ff2d55;"></span>
+                <span class="tut-player-label" style="color:#ff2d55;">2P</span>
+                <span class="tut-key" style="border-color:#ff2d55;color:#ff2d55;">←</span>
+                <span class="tut-key" style="border-color:#ff2d55;color:#ff2d55;">→</span>
+                <span class="tut-key" style="border-color:#ff2d55;color:#ff2d55;">\\</span>
+            </div>
+            <div class="tut-player-row">
+                <span class="tut-player-dot" style="background:#ffe600;"></span>
+                <span class="tut-player-label" style="color:#ffe600;">3P</span>
+                <span class="tut-key" style="border-color:#ffe600;color:#ffe600;">B</span>
+                <span class="tut-key" style="border-color:#ffe600;color:#ffe600;">N</span>
+                <span class="tut-key" style="border-color:#ffe600;color:#ffe600;">M</span>
+            </div>`;
+    }
+    document.getElementById('tutorialOverlay').classList.add('show');
+}
+
+function startFromTutorial() {
+    document.getElementById('tutorialOverlay').classList.remove('show');
+    gameSpeed = baseGameSpeed;
+    gameWrapper.style.display = 'block';
+    document.getElementById('gameInfoBar').style.display = 'flex';
+    updateInfoBarKeys(maxPlayers);
+    restartBtn.style.display = 'none';
+    gameOver=false; score=0;
+    obstacles=[]; skyObstacles=[]; items=[]; meteors=[]; effectParticles=[];
+    resetPlayers();
+    gameStartTime=Date.now(); lastItemSpawnTime=Date.now();
+    bombActiveTimer=0; lastGroundSpawnCooldown=0;
+    gameStarted=true;
+    loop();
+}
+
+function updateInfoBarKeys(players) {
+    const el = document.getElementById('infoBarKeys');
+    if (!el) return;
+    if (players === 1) {
+        el.innerHTML = `
+            <div class="key-group"><span class="key-badge">←</span><span class="key-badge">→</span><span class="key-desc">이동</span></div>
+            <div class="key-group"><span class="key-badge">SPACE</span><span class="key-desc">점프 (이단점프)</span></div>`;
+    } else if (players === 2) {
+        el.innerHTML = `
+            <div class="key-group" style="color:#00f0ff"><span class="key-badge" style="border-color:#00f0ff;color:#00f0ff">'\`'</span><span class="key-badge" style="border-color:#00f0ff;color:#00f0ff">1</span><span class="key-badge" style="border-color:#00f0ff;color:#00f0ff">2</span><span class="key-desc" style="color:rgba(0,240,255,0.6)">1P</span></div>
+            <div class="key-group" style="color:#ff2d55"><span class="key-badge" style="border-color:#ff2d55;color:#ff2d55">←</span><span class="key-badge" style="border-color:#ff2d55;color:#ff2d55">→</span><span class="key-badge" style="border-color:#ff2d55;color:#ff2d55">\\</span><span class="key-desc" style="color:rgba(255,45,85,0.6)">2P</span></div>`;
+    } else {
+        el.innerHTML = `
+            <div class="key-group"><span class="key-badge" style="border-color:#00f0ff;color:#00f0ff">'\`' 1 2</span><span class="key-desc" style="color:rgba(0,240,255,0.6)">1P</span></div>
+            <div class="key-group"><span class="key-badge" style="border-color:#ff2d55;color:#ff2d55">← → \\</span><span class="key-desc" style="color:rgba(255,45,85,0.6)">2P</span></div>
+            <div class="key-group"><span class="key-badge" style="border-color:#ffe600;color:#ffe600">B N M</span><span class="key-desc" style="color:rgba(255,230,0,0.6)">3P</span></div>`;
+    }
+}
+
+function returnToMenu() {
+    cancelAnimationFrame(animationId);
+    gameStarted=false;
+    gameWrapper.style.display='none';
+    document.getElementById('gameInfoBar').style.display='none';
+    document.getElementById('tutorialOverlay').classList.remove('show');
+    restartBtn.style.display='none';
+    difficultySection.style.display='none';
+    closeRanking();
+    document.getElementById('nicknameOverlay').classList.remove('show');
+    document.querySelectorAll('.select-btn').forEach(b=>b.classList.remove('selected'));
+    guideText.innerHTML='플레이 인원수를 선택하시면 알맞은 조작법이 표시됩니다.';
+    menuContainer.style.display='block';
+}
+
+/* -------- 키 입력 -------- */
+window.addEventListener('keydown', (e) => {
+    if (!gameStarted || gameOver) return;
+    if (maxPlayers===1) {
+        if (player1.lives<=0) return;
+        if (e.key==='ArrowLeft') keys.p1Left=true;
+        if (e.key==='ArrowRight') keys.p1Right=true;
+        if (e.key===' '||e.code==='Space') { e.preventDefault(); if(player1.jumpCount<player1.maxJumps){player1.vy=-13;player1.jumpCount++;} }
+    } else {
+        if (player1.lives>0) {
+            if (e.key==='`') keys.p1Left=true;
+            if (e.key==='1') keys.p1Right=true;
+            if (e.key==='2') { if(player1.jumpCount<player1.maxJumps){player1.vy=-13;player1.jumpCount++;} }
+        }
+        if (maxPlayers>=2&&player2.lives>0) {
+            if (e.key==='ArrowLeft') keys.p2Left=true;
+            if (e.key==='ArrowRight') keys.p2Right=true;
+            if (e.key==='\\') { if(player2.jumpCount<player2.maxJumps){player2.vy=-13;player2.jumpCount++;} }
+        }
+        if (maxPlayers===3&&player3.lives>0) {
+            if (e.key==='b'||e.key==='B') keys.p3Left=true;
+            if (e.key==='n'||e.key==='N') keys.p3Right=true;
+            if (e.key==='m'||e.key==='M') { if(player3.jumpCount<player3.maxJumps){player3.vy=-13;player3.jumpCount++;} }
+        }
+    }
+});
+window.addEventListener('keyup', (e) => {
+    if (e.key==='ArrowLeft')  { if(maxPlayers===1) keys.p1Left=false; if(maxPlayers>=2) keys.p2Left=false; }
+    if (e.key==='ArrowRight') { if(maxPlayers===1) keys.p1Right=false; if(maxPlayers>=2) keys.p2Right=false; }
+    if (e.key==='`') keys.p1Left=false;
+    if (e.key==='1') keys.p1Right=false;
+    if (e.key==='b'||e.key==='B') keys.p3Left=false;
+    if (e.key==='n'||e.key==='N') keys.p3Right=false;
+});
+
+/* -------- 스폰 -------- */
+function spawnObstacle() {
+    if (bombActiveTimer>0) return;
+    if (Math.random()<spawnRate && !gameOver) {
+        const w=20+Math.random()*25, h=25+Math.random()*70;
+        obstacles.push({ x:canvas.width, y:canvas.height-h, width:w, height:h, color:'#7f8c8d', glowColor:'rgba(127,140,141,0.4)' });
+        lastGroundSpawnCooldown=45;
+    }
+}
+function spawnSkyObstacle() {
+    if (bombActiveTimer>0) return;
+    if (timeElapsed>=25&&lastGroundSpawnCooldown<=0&&Math.random()<0.015&&!gameOver) {
+        const skyY=canvas.height-90-(Math.random()*160);
+        // 진짜 유성 — 약간 아래 방향으로 기울어진 수평 돌진체
+        skyObstacles.push({
+            x: canvas.width, y: skyY,
+            width: 56, height: 22,
+            coreSize: 8 + Math.random()*5,
+            tailLen: 70 + Math.random()*40,
+            tilt: 0,          // 수평 고정
+            sparks: [],
+            glowColor:'rgba(255,180,60,0.6)'
+        });
+    }
+}
+function spawnMeteor() {
+    if (bombActiveTimer>0) return;
+    if (timeElapsed>=60&&Math.random()<0.025&&!gameOver) {
+        const sz=22+Math.random()*14;
+        meteors.push({
+            x: Math.random()*(canvas.width-sz),
+            y: -sz,
+            size: sz,
+            speed: 4+Math.random()*4,
+            trail: [],
+            rotation: 0,
+            rotSpeed: (Math.random()-0.5)*0.2
+        });
+    }
+}
+// 아이템 스폰: 20초마다 + 장애물이 충분히 비어있을 때만
+function checkItemSpawn() {
+    const now=Date.now();
+    if (now-lastItemSpawnTime < 20000) return;
+
+    // 화면 중앙 구간(x=200~900)에 장애물이 없어야 스폰
+    const clearZone = obstacles.filter(o => o.x > 150 && o.x < 950);
+    const skyClear  = skyObstacles.filter(s => s.x > 150 && s.x < 950);
+    if (clearZone.length > 0 || skyClear.length > 0) return; // 장애물 있으면 대기
+
+    lastItemSpawnTime=now;
+    // 아이템 Y: 바닥 위 충분한 공간에 배치 (점프 없이도 닿는 낮은 위치 우선)
+    const itemY = canvas.height - 60 - Math.random()*80;
+    const rand=Math.random()*100;
+    let type,color,glowColor;
+    // 독 제거: HEAL 55% / INVINCIBLE 25% / BOMB 20%
+    if      (rand < 55) { type='HEAL';       color='#ff2d55'; glowColor='rgba(255,45,85,0.5)'; }
+    else if (rand < 80) { type='INVINCIBLE'; color='#ffe600'; glowColor='rgba(255,230,0,0.5)'; }
+    else                { type='BOMB';       color='#ff6b00'; glowColor='rgba(255,107,0,0.5)'; }
+    items.push({ x:canvas.width, y:itemY, size:44, type, color, glowColor, rotation:0, pulse:Math.random()*Math.PI*2 });
+}
+
+/* -------- 플레이어 업데이트 -------- */
+function updatePlayer(p, left, right) {
+    if (!p.active||p.lives<=0) return;
+    // 트레일 저장
+    p.trail.push({x:p.x+p.size/2, y:p.y+p.size/2});
+    if (p.trail.length>8) p.trail.shift();
+
+    if (p.itemInvincibleTimer>0) {
+        p.itemInvincibleTimer--;
+        if (p.itemInvincibleTimer%4===0) p.isVisible=!p.isVisible;
+    } else if (p.invincibleTimer>0) {
+        p.invincibleTimer--;
+        if (p.invincibleTimer%5===0) p.isVisible=!p.isVisible;
+    } else { p.isVisible=true; }
+
+    if (left) p.vx=-p.speed;
+    else if (right) p.vx=p.speed;
+    else p.vx=0;
+    p.x+=p.vx; p.vy+=gravity; p.y+=p.vy;
+    if (p.x<0) p.x=0;
+    if (p.x+p.size>canvas.width) p.x=canvas.width-p.size;
+    const groundY=canvas.height-p.size;
+    if (p.y>groundY) { p.y=groundY; p.vy=0; p.jumpCount=0; }
+}
+
+function applyItemEffect(player, type) {
+    if (type==='HEAL') { if(player.lives<3) player.lives++; spawnCollectParticles(player.x+player.size/2, player.y+player.size/2, '#ff2d55'); }
+    else if (type==='INVINCIBLE') { player.itemInvincibleTimer=300; spawnCollectParticles(player.x+player.size/2, player.y+player.size/2, '#ffe600'); }
+    else if (type==='BOMB') {
+        bombActiveTimer=120; obstacles=[]; skyObstacles=[]; meteors=[];
+        spawnCollectParticles(player.x+player.size/2, player.y+player.size/2, '#ff6b00');
+        screenShake=25;
+    }
+}
+function checkGameOverCondition() {
+    if (maxPlayers===1 && player1.lives<=0) gameOver=true;
+    else if (maxPlayers===2 && player1.lives<=0 && player2.lives<=0) gameOver=true;
+    else if (maxPlayers===3 && player1.lives<=0 && player2.lives<=0 && player3.lives<=0) gameOver=true;
+}
+
+/* -------- UPDATE -------- */
+function update() {
+    if (gameOver) return;
+    timeElapsed=Math.floor((Date.now()-gameStartTime)/1000);
+    gameSpeed=baseGameSpeed+(timeElapsed*0.05);
+    warnPulse = (warnPulse + 0.08) % (Math.PI*2);
+
+    if (screenShake>0) {
+        screenShake--;
+        shakeX=(Math.random()-0.5)*screenShake*0.6;
+        shakeY=(Math.random()-0.5)*screenShake*0.6;
+    } else { shakeX=0; shakeY=0; }
+
+    if (bombActiveTimer>0) bombActiveTimer--;
+    if (lastGroundSpawnCooldown>0) lastGroundSpawnCooldown--;
+
+    updatePlayer(player1, keys.p1Left, keys.p1Right);
+    if (maxPlayers>=2) updatePlayer(player2, keys.p2Left, keys.p2Right);
+    if (maxPlayers===3) updatePlayer(player3, keys.p3Left, keys.p3Right);
+
+    let alivePlayers=[];
+    if (player1.active&&player1.lives>0) alivePlayers.push(player1);
+    if (maxPlayers>=2&&player2.active&&player2.lives>0) alivePlayers.push(player2);
+    if (maxPlayers===3&&player3.active&&player3.lives>0) alivePlayers.push(player3);
+
+    // 파티클 업데이트
+    for (let i=effectParticles.length-1;i>=0;i--) {
+        const ep=effectParticles[i];
+        ep.x+=ep.vx; ep.y+=ep.vy; ep.vy+=0.15;
+        ep.alpha-=1/ep.life; ep.size*=0.97;
+        if (ep.alpha<=0) effectParticles.splice(i,1);
+    }
+
+    // 별 이동
+    bgStars.forEach(s => { s.x-=s.speed; if(s.x<0) s.x=canvas.width; s.twinkle+=0.05; });
+
+    // 바닥 장애물
+    for (let i=obstacles.length-1;i>=0;i--) {
+        const obs=obstacles[i];
+        obs.x-=gameSpeed;
+        let smashed = false;
+        alivePlayers.forEach(p => {
+            if (smashed) return;
+            const hit = p.x<obs.x+obs.width&&p.x+p.size>obs.x&&p.y<obs.y+obs.height&&p.y+p.size>obs.y;
+            if (!hit) return;
+            if (p.itemInvincibleTimer > 0) {
+                // 무적 → 장애물 박살
+                spawnObstacleSmashedParticles(obs.x, obs.y, obs.width, obs.height, p.color);
+                score += 150;
+                smashed = true;
+            } else if (p.invincibleTimer === 0) {
+                p.lives--; p.invincibleTimer=90; screenShake=12; hitFlash=8;
+                spawnHitParticles(p.x+p.size/2, p.y+p.size/2, p.color);
+                checkGameOverCondition();
+            }
+        });
+        if (smashed) { obstacles.splice(i,1); continue; }
+        if (obs.x+obs.width<0) { obstacles.splice(i,1); score+=100; }
+    }
+
+    // 하늘 장애물 (유성)
+    for (let i=skyObstacles.length-1;i>=0;i--) {
+        const sky=skyObstacles[i];
+        sky.x-=(gameSpeed+1.2);
+        // tilt=0 → y 변화 없음, 완전 수평
+
+        // 유성 불꽃 파티클 방출
+        if (!sky.sparks) sky.sparks=[];
+        if (Math.random()<0.6) {
+            sky.sparks.push({
+                x: sky.x + sky.width/2 + (Math.random()-0.5)*6,
+                y: sky.y + sky.height/2 + (Math.random()-0.5)*4,
+                vx: (gameSpeed+1.2)*0.3 + Math.random()*2,
+                vy: (Math.random()-0.5)*1.5,
+                alpha: 0.9,
+                size: 2+Math.random()*3,
+                color: Math.random()<0.5 ? '#ffe600' : '#ff9020'
+            });
+        }
+        sky.sparks = sky.sparks.filter(sp=>{
+            sp.x+=sp.vx; sp.y+=sp.vy; sp.alpha-=0.07; sp.size*=0.93;
+            return sp.alpha>0;
+        });
+        let skySm = false;
+        alivePlayers.forEach(p => {
+            if (skySm) return;
+            const hit = p.x<sky.x+sky.width&&p.x+p.size>sky.x&&p.y<sky.y+sky.height&&p.y+p.size>sky.y;
+            if (!hit) return;
+            if (p.itemInvincibleTimer > 0) {
+                spawnSkySmashParticles(sky.x+sky.width/2, sky.y+sky.height/2, p.color);
+                score += 200;
+                skySm = true;
+            } else if (p.invincibleTimer === 0) {
+                p.lives--; p.invincibleTimer=90; screenShake=12; hitFlash=8;
+                spawnHitParticles(p.x+p.size/2, p.y+p.size/2, p.color);
+                checkGameOverCondition();
+            }
+        });
+        if (skySm) { skyObstacles.splice(i,1); continue; }
+        if (sky.x+sky.width<0) { skyObstacles.splice(i,1); score+=150; }
+    }
+
+    // 운석
+    for (let i=meteors.length-1;i>=0;i--) {
+        const m=meteors[i];
+        m.trail.push({x:m.x+m.size/2, y:m.y+m.size/2});
+        if (m.trail.length>10) m.trail.shift();
+        m.y+=m.speed; m.rotation+=m.rotSpeed;
+        let metSm = false;
+        alivePlayers.forEach(p => {
+            if (metSm) return;
+            const hit = p.x<m.x+m.size&&p.x+p.size>m.x&&p.y<m.y+m.size&&p.y+p.size>m.y;
+            if (!hit) return;
+            if (p.itemInvincibleTimer > 0) {
+                spawnMeteorSmashedParticles(m.x+m.size/2, m.y+m.size/2, p.color);
+                score += 300;
+                metSm = true;
+            } else if (p.invincibleTimer === 0) {
+                p.lives--; p.invincibleTimer=90; screenShake=20; hitFlash=12;
+                spawnMeteorCrashParticles(m.x+m.size/2, m.y+m.size/2);
+                checkGameOverCondition();
+            }
+        });
+        if (metSm) { meteors.splice(i,1); continue; }
+        if (m.y>canvas.height) {
+            spawnMeteorCrashParticles(m.x+m.size/2, canvas.height);
+            meteors.splice(i,1); score+=200;
+        }
+    }
+
+    // 아이템
+    for (let i=items.length-1;i>=0;i--) {
+        const item=items[i];
+        item.x-=(gameSpeed * 0.5); item.rotation+=0.03; item.pulse=(item.pulse||0)+0.08;
+        let hit=false;
+        for (let p of alivePlayers) {
+            if (p.x<item.x+item.size&&p.x+p.size>item.x&&p.y<item.y+item.size&&p.y+p.size>item.y) {
+                applyItemEffect(p,item.type); items.splice(i,1); hit=true; break;
+            }
+        }
+        if (hit) continue;
+        if (item.x+item.size<0) items.splice(i,1);
+    }
+
+    spawnObstacle(); spawnSkyObstacle(); spawnMeteor(); checkItemSpawn();
+    if (gameOver) {
+        // 잠깐 딜레이 후 닉네임 입력 오버레이 표시
+        setTimeout(() => showNicknameOverlay(currentDifficulty, score, timeElapsed), 1200);
+    }
+}
+
+/* -------- DRAW -------- */
+function draw() {
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    // 배경
+    ctx.fillStyle='#05050f';
+    ctx.fillRect(-shakeX, -shakeY, canvas.width, canvas.height);
+
+    // 그리드
+    ctx.strokeStyle='rgba(0,240,255,0.04)';
+    ctx.lineWidth=1;
+    for (let x=0;x<canvas.width;x+=40) {
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
+    }
+    for (let y=0;y<canvas.height;y+=40) {
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+    }
+
+    // 배경 별
+    bgStars.forEach(s => {
+        const alpha=0.3+Math.sin(s.twinkle)*0.3;
+        ctx.globalAlpha=alpha;
+        ctx.fillStyle='white';
+        ctx.beginPath(); ctx.arc(s.x,s.y,s.size,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+
+    // 히트 플래시
+    if (hitFlash>0) {
+        hitFlash--;
+        ctx.fillStyle=`rgba(255,45,85,${hitFlash/40})`;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+
+    // 지면선 (네온)
+    const groundY=canvas.height;
+    ctx.save();
+    ctx.shadowColor='#00f0ff'; ctx.shadowBlur=15;
+    ctx.strokeStyle='rgba(0,240,255,0.6)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,groundY); ctx.lineTo(canvas.width,groundY); ctx.stroke();
+    ctx.restore();
+
+    /* ---- 플레이어 드로우 ---- */
+    [player1, player2, player3].forEach((p,idx) => {
+        if (!p.active||p.lives<=0) return;
+        if (idx===1&&maxPlayers<2) return;
+        if (idx===2&&maxPlayers<3) return;
+
+        // 트레일
+        if (p.isVisible) {
+            p.trail.forEach((pt,i) => {
+                const alpha=(i/p.trail.length)*0.25;
+                const size=p.size*((i+1)/p.trail.length)*0.8;
+                ctx.save();
+                ctx.globalAlpha=alpha;
+                ctx.fillStyle=p.color;
+                ctx.fillRect(pt.x-size/2, pt.y-size/2, size, size);
+                ctx.restore();
+            });
+        }
+
+        if (!p.isVisible) return;
+
+        // 플레이어 본체 (네온 박스)
+        ctx.save();
+        ctx.shadowColor=p.color; ctx.shadowBlur=20;
+        // 외곽 글로우
+        const r=parseInt(p.color.slice(1,3),16),g2=parseInt(p.color.slice(3,5),16),b=parseInt(p.color.slice(5,7),16);
+        ctx.fillStyle=`rgba(${r},${g2},${b},0.15)`;
+        ctx.fillRect(p.x-4,p.y-4,p.size+8,p.size+8);
+        ctx.fillStyle=`rgba(${r},${g2},${b},0.85)`;
+        ctx.fillRect(p.x,p.y,p.size,p.size);
+        // 내부 하이라이트
+        ctx.fillStyle=`rgba(255,255,255,0.25)`;
+        ctx.fillRect(p.x+3,p.y+3,p.size-6,6);
+        ctx.restore();
+
+        // 무적 아이템 링
+        if (p.itemInvincibleTimer>0) {
+            const t=Date.now()/300;
+            ctx.save();
+            ctx.shadowColor='#ffe600'; ctx.shadowBlur=25;
+            ctx.strokeStyle='#ffe600'; ctx.lineWidth=2;
+            ctx.globalAlpha=0.7+Math.sin(t)*0.3;
+            ctx.strokeRect(p.x-6,p.y-6,p.size+12,p.size+12);
+            ctx.restore();
+        }
+    });
+
+    /* ---- 바닥 장애물 ---- */
+    obstacles.forEach(obs => {
+        ctx.save();
+        ctx.shadowColor='rgba(127,140,141,0.8)'; ctx.shadowBlur=10;
+        // 그라데이션
+        const grd=ctx.createLinearGradient(obs.x,obs.y,obs.x+obs.width,obs.y+obs.height);
+        grd.addColorStop(0,'#95a5a6'); grd.addColorStop(1,'#4a5568');
+        ctx.fillStyle=grd; ctx.fillRect(obs.x,obs.y,obs.width,obs.height);
+        ctx.strokeStyle='rgba(200,210,220,0.4)'; ctx.lineWidth=1;
+        ctx.strokeRect(obs.x,obs.y,obs.width,obs.height);
+        // 작은 크랙 디테일
+        ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(obs.x+obs.width*0.3,obs.y); ctx.lineTo(obs.x+obs.width*0.4,obs.y+obs.height*0.4); ctx.stroke();
+        ctx.restore();
+    });
+
+    /* ---- 하늘 장애물: 진짜 유성 (수평 돌진) ---- */
+    skyObstacles.forEach(sky => {
+        const tilt = sky.tilt || 0.2;
+        // 머리 위치: 히트박스 왼쪽 끝
+        const hx = sky.x;
+        const hy = sky.y + sky.height/2;
+        const tail = sky.tailLen || 90;
+        const core = sky.coreSize || 9;
+
+        // 꼬리 방향벡터: 완전 수평 (오른쪽으로 뻗음)
+        const tx = 1;
+        const ty = 0;
+
+        ctx.save();
+
+        // ── 외곽 광선 (가장 넓은 빛 콘) ──
+        const outerGrd = ctx.createLinearGradient(hx, hy, hx+tx*tail*1.2, hy+ty*tail*1.2);
+        outerGrd.addColorStop(0,'rgba(255,230,120,0.25)');
+        outerGrd.addColorStop(0.5,'rgba(255,140,30,0.12)');
+        outerGrd.addColorStop(1,'rgba(255,80,0,0)');
+        ctx.fillStyle = outerGrd;
+        ctx.beginPath();
+        const spreadOuter = core * 2.8;
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(hx + tx*tail*1.2 - ty*spreadOuter, hy + ty*tail*1.2 + tx*spreadOuter);
+        ctx.lineTo(hx + tx*tail*1.2 + ty*spreadOuter, hy + ty*tail*1.2 - tx*spreadOuter);
+        ctx.closePath();
+        ctx.fill();
+
+        // ── 메인 꼬리 (밝은 흰→주황→투명 그라데이션) ──
+        const mainGrd = ctx.createLinearGradient(hx, hy, hx+tx*tail, hy+ty*tail);
+        mainGrd.addColorStop(0,'rgba(255,255,255,0.95)');
+        mainGrd.addColorStop(0.15,'rgba(255,240,180,0.85)');
+        mainGrd.addColorStop(0.4,'rgba(255,160,40,0.55)');
+        mainGrd.addColorStop(0.75,'rgba(255,80,10,0.2)');
+        mainGrd.addColorStop(1,'rgba(200,60,0,0)');
+        ctx.fillStyle = mainGrd;
+        ctx.beginPath();
+        const spread = core * 1.1;
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(hx + tx*tail - ty*spread, hy + ty*tail + tx*spread);
+        ctx.lineTo(hx + tx*tail + ty*spread, hy + ty*tail - tx*spread);
+        ctx.closePath();
+        ctx.fill();
+
+        // ── 핵 외곽 글로우 ──
+        ctx.shadowColor='#ffdd60'; ctx.shadowBlur=30;
+        const coreGrd = ctx.createRadialGradient(hx, hy, 0, hx, hy, core*2.2);
+        coreGrd.addColorStop(0,'rgba(255,255,255,1)');
+        coreGrd.addColorStop(0.35,'rgba(255,240,150,0.85)');
+        coreGrd.addColorStop(0.7,'rgba(255,160,40,0.4)');
+        coreGrd.addColorStop(1,'rgba(255,100,0,0)');
+        ctx.fillStyle = coreGrd;
+        ctx.beginPath(); ctx.arc(hx, hy, core*2.2, 0, Math.PI*2); ctx.fill();
+
+        // ── 핵 본체 (순백) ──
+        ctx.shadowColor='#ffffff'; ctx.shadowBlur=20;
+        const innerGrd = ctx.createRadialGradient(hx-core*0.2, hy-core*0.2, 0, hx, hy, core);
+        innerGrd.addColorStop(0,'#ffffff');
+        innerGrd.addColorStop(0.6,'rgba(255,240,200,0.95)');
+        innerGrd.addColorStop(1,'rgba(255,200,80,0.7)');
+        ctx.fillStyle = innerGrd;
+        ctx.beginPath(); ctx.arc(hx, hy, core, 0, Math.PI*2); ctx.fill();
+
+        // ── 불꽃 스파크 파티클 ──
+        if (sky.sparks) sky.sparks.forEach(sp => {
+            ctx.save();
+            ctx.globalAlpha = sp.alpha;
+            ctx.shadowColor = sp.color; ctx.shadowBlur = sp.size*3;
+            ctx.fillStyle = sp.color;
+            ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.size/2, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        });
+
+        ctx.restore();
+    });
+
+    /* ---- 운석 (원형 + 트레일) ---- */
+    meteors.forEach(m => {
+        // 트레일
+        m.trail.forEach((pt,i) => {
+            const alpha=(i/m.trail.length)*0.5;
+            const sz=m.size*((i+1)/m.trail.length)*0.7;
+            ctx.save();
+            ctx.globalAlpha=alpha;
+            const trailGrd=ctx.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,sz/2);
+            trailGrd.addColorStop(0,'#ffe600'); trailGrd.addColorStop(1,'rgba(255,45,85,0)');
+            ctx.fillStyle=trailGrd;
+            ctx.beginPath(); ctx.arc(pt.x,pt.y,sz/2,0,Math.PI*2); ctx.fill();
+            ctx.restore();
+        });
+        // 본체
+        ctx.save();
+        ctx.shadowColor='#ff6b00'; ctx.shadowBlur=30;
+        ctx.translate(m.x+m.size/2, m.y+m.size/2);
+        ctx.rotate(m.rotation);
+        const mgrd=ctx.createRadialGradient(0,0,0,0,0,m.size/2);
+        mgrd.addColorStop(0,'#ffffff'); mgrd.addColorStop(0.3,'#ffe600'); mgrd.addColorStop(0.7,'#ff6b00'); mgrd.addColorStop(1,'#ff2d55');
+        ctx.fillStyle=mgrd;
+        // 불규칙한 다각형
+        ctx.beginPath();
+        const pts=7;
+        for (let i=0;i<pts;i++) {
+            const angle=(Math.PI*2/pts)*i;
+            const r2=m.size/2*(0.8+Math.sin(i*7+m.rotation)*0.2);
+            if (i===0) ctx.moveTo(Math.cos(angle)*r2, Math.sin(angle)*r2);
+            else ctx.lineTo(Math.cos(angle)*r2, Math.sin(angle)*r2);
+        }
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+    });
+
+    /* ---- 아이템 (크고 직관적인 아이콘 스타일) ---- */
+    items.forEach(item => {
+        const cx = item.x + item.size/2;
+        const cy = item.y + item.size/2;
+        const pulse = item.pulse || 0;
+        const pulseFactor = 1 + Math.sin(pulse) * 0.06;
+        const r = item.size/2 * pulseFactor;
+
+        ctx.save();
+        ctx.shadowColor = item.glowColor || item.color;
+        ctx.shadowBlur = 30 + Math.sin(pulse)*10;
+
+        // 외곽 링 (회전)
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(item.rotation);
+        ctx.strokeStyle = item.color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.5 + Math.sin(pulse)*0.2;
+        ctx.setLineDash([6,4]);
+        ctx.beginPath(); ctx.arc(0, 0, r+8, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+
+        // 배경 원
+        const bgGrd = ctx.createRadialGradient(cx, cy-4, 2, cx, cy, r);
+        if (item.type==='HEAL') {
+            bgGrd.addColorStop(0,'rgba(255,80,100,0.95)');
+            bgGrd.addColorStop(1,'rgba(180,20,40,0.85)');
+        } else if (item.type==='POISON') {
+            bgGrd.addColorStop(0,'rgba(60,255,150,0.95)');
+            bgGrd.addColorStop(1,'rgba(0,150,60,0.85)');
+        } else if (item.type==='INVINCIBLE') {
+            bgGrd.addColorStop(0,'rgba(255,240,50,0.98)');
+            bgGrd.addColorStop(1,'rgba(200,140,0,0.85)');
+        } else {
+            bgGrd.addColorStop(0,'rgba(255,140,30,0.98)');
+            bgGrd.addColorStop(1,'rgba(180,60,0,0.85)');
+        }
+        ctx.fillStyle = bgGrd;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+
+        // 내부 광택
+        const shineGrd = ctx.createRadialGradient(cx-r*0.25, cy-r*0.3, 0, cx, cy, r);
+        shineGrd.addColorStop(0,'rgba(255,255,255,0.4)');
+        shineGrd.addColorStop(0.5,'rgba(255,255,255,0.05)');
+        shineGrd.addColorStop(1,'rgba(0,0,0,0.2)');
+        ctx.fillStyle = shineGrd;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+
+        // 테두리
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+
+        // 아이콘별 직관 도형
+        ctx.shadowBlur = 0;
+        if (item.type === 'HEAL') {
+            // 십자 (하트 대신 명확한 플러스)
+            const arm = r*0.38, thick = r*0.22;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(cx-thick, cy-arm, thick*2, arm*2);   // 세로
+            ctx.fillRect(cx-arm,   cy-thick, arm*2, thick*2); // 가로
+            // HEAL 텍스트
+            ctx.font = `bold ${r*0.32}px Orbitron`;
+            ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,0.9)';
+            ctx.fillText('HP+', cx, cy+r+14);
+        } else if (item.type === 'INVINCIBLE') {
+            // 번개 볼트
+            ctx.fillStyle='rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            const bx=cx, by=cy;
+            ctx.moveTo(bx+r*0.15,by-r*0.5);
+            ctx.lineTo(bx-r*0.08,by+r*0.02);
+            ctx.lineTo(bx+r*0.1, by+r*0.02);
+            ctx.lineTo(bx-r*0.15,by+r*0.5);
+            ctx.lineTo(bx+r*0.35,by-r*0.05);
+            ctx.lineTo(bx+r*0.1, by-r*0.05);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle='rgba(255,255,255,0.95)';
+            ctx.beginPath();
+            ctx.moveTo(bx+r*0.12,by-r*0.48);
+            ctx.lineTo(bx-r*0.1, by+r*0.0);
+            ctx.lineTo(bx+r*0.08,by+r*0.0);
+            ctx.lineTo(bx-r*0.17,by+r*0.48);
+            ctx.lineTo(bx+r*0.33,by-r*0.07);
+            ctx.lineTo(bx+r*0.08,by-r*0.07);
+            ctx.closePath();
+            ctx.fill();
+            ctx.font = `bold ${r*0.32}px Orbitron`;
+            ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.textAlign='center';
+            ctx.fillText('무적', cx, cy+r+14);
+        } else if (item.type === 'BOMB') {
+            // 폭탄 원 + 도화선
+            ctx.fillStyle='rgba(0,0,0,0.6)';
+            ctx.beginPath(); ctx.arc(cx, cy+r*0.05, r*0.4, 0, Math.PI*2); ctx.fill();
+            // 도화선
+            ctx.strokeStyle='rgba(255,200,50,0.9)'; ctx.lineWidth=r*0.08;
+            ctx.beginPath();
+            ctx.moveTo(cx+r*0.25, cy-r*0.25);
+            ctx.quadraticCurveTo(cx+r*0.45, cy-r*0.6, cx+r*0.15, cy-r*0.5);
+            ctx.stroke();
+            // 불꽃
+            ctx.fillStyle='rgba(255,200,50,0.95)';
+            ctx.beginPath(); ctx.arc(cx+r*0.15, cy-r*0.5, r*0.1, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle='white';
+            ctx.beginPath(); ctx.arc(cx+r*0.15, cy-r*0.5, r*0.05, 0, Math.PI*2); ctx.fill();
+            // 광택
+            ctx.fillStyle='rgba(255,255,255,0.2)';
+            ctx.beginPath(); ctx.arc(cx-r*0.12, cy-r*0.1, r*0.12, 0, Math.PI*2); ctx.fill();
+            ctx.font = `bold ${r*0.32}px Orbitron`;
+            ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.textAlign='center';
+            ctx.fillText('폭탄', cx, cy+r+14);
+        }
+
+        ctx.restore();
+    });
+
+    /* ---- 이펙트 파티클 ---- */
+    effectParticles.forEach(ep => {
+        ctx.save();
+        ctx.globalAlpha=ep.alpha;
+        ctx.shadowColor=ep.color; ctx.shadowBlur=ep.size*2;
+        ctx.fillStyle=ep.color;
+        ctx.beginPath(); ctx.arc(ep.x,ep.y,ep.size/2,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    });
+
+    /* ---- 폭탄 발동 오버레이 ---- */
+    if (bombActiveTimer>0) {
+        const pulseAlpha=0.12+Math.sin(Date.now()/80)*0.07;
+        ctx.fillStyle=`rgba(255,107,0,${pulseAlpha})`; ctx.fillRect(0,0,canvas.width,canvas.height);
+        // 경계 테두리
+        ctx.strokeStyle='rgba(255,107,0,0.5)'; ctx.lineWidth=3;
+        ctx.strokeRect(3,3,canvas.width-6,canvas.height-6);
+        drawGlowText('💣  BOMB ACTIVATED  💣', canvas.width/2, 110, '#ff6b00', 'bold 18px Orbitron', 'center', 20);
+    }
+
+    /* ---- HUD ---- */
+    // 좌측
+    const diffLabel = currentDifficulty==='NORMAL'?'EASY': currentDifficulty==='HARD'?'NORMAL': currentDifficulty==='SUPER HARD'?'HARD': currentDifficulty;
+    drawGlowText(`${diffLabel}`, 20, 32, '#ffe600', '11px Orbitron', 'left', 15);
+    drawGlowText(`${score}`, 20, 62, '#00f0ff', 'bold 22px Orbitron', 'left', 20);
+    ctx.fillStyle='rgba(0,240,255,0.3)'; ctx.font='10px Orbitron'; ctx.textAlign='left'; ctx.fillText('SCORE', 20, 76);
+    drawGlowText(`${timeElapsed}s`, 20, 104, '#ffffff', '14px Orbitron', 'left', 8);
+
+    // 혜성 경보
+    if (timeElapsed>=60&&!gameOver) {
+        const warnAlpha=0.7+Math.sin(warnPulse*4)*0.3;
+        ctx.save();
+        ctx.globalAlpha=warnAlpha;
+        drawGlowText('⚠ METEOR STORM ACTIVE', 20, 135, '#ff2d55', 'bold 12px Orbitron', 'left', 15);
+        ctx.restore();
+    }
+
+    // 우측 라이프
+    function drawLifeBar(p, label, x, y) {
+        if (!p.active) return;
+        ctx.textAlign='right';
+        ctx.font='9px Orbitron'; ctx.fillStyle=p.color; ctx.shadowBlur=0;
+        ctx.fillText(label, x, y-2);
+        for (let i=0;i<3;i++) {
+            const bx=x-(3-i)*28;
+            if (i<p.lives) {
+                ctx.save();
+                ctx.shadowColor=p.color; ctx.shadowBlur=10;
+                ctx.fillStyle=p.color;
+                ctx.fillRect(bx-20,y+4,20,8);
+                ctx.restore();
+            } else {
+                ctx.fillStyle='rgba(255,255,255,0.1)';
+                ctx.fillRect(bx-20,y+4,20,8);
+            }
+        }
+        if (p.lives<=0) {
+            ctx.fillStyle='rgba(255,45,85,0.8)'; ctx.font='bold 10px Orbitron'; ctx.textAlign='right';
+            ctx.fillText('ELIMINATED', x, y+17);
+        }
+    }
+
+    drawLifeBar(player1, '1P', canvas.width-20, 28);
+    if (maxPlayers>=2) drawLifeBar(player2, '2P', canvas.width-20, 60);
+    if (maxPlayers===3) drawLifeBar(player3, '3P', canvas.width-20, 92);
+
+    /* ---- 게임 오버 ---- */
+    if (gameOver) {
+        ctx.fillStyle='rgba(0,0,0,0.88)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        // 스캔라인 느낌
+        for (let y=0;y<canvas.height;y+=3) {
+            ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(0,y,canvas.width,1);
+        }
+
+        // GAME OVER 타이틀
+        ctx.save();
+        ctx.shadowColor='#ff2d55'; ctx.shadowBlur=60;
+        ctx.font='bold 58px Orbitron'; ctx.textAlign='center'; ctx.fillStyle='#ff2d55';
+        ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2-50);
+        ctx.shadowBlur=20; ctx.globalAlpha=0.4;
+        ctx.fillText('GAME OVER', canvas.width/2+2, canvas.height/2-48);
+        ctx.restore();
+
+        // 구분선
+        ctx.save();
+        ctx.shadowColor='#00f0ff'; ctx.shadowBlur=10;
+        ctx.strokeStyle='rgba(0,240,255,0.4)'; ctx.lineWidth=1;
+        ctx.beginPath();
+        ctx.moveTo(canvas.width/2-250,canvas.height/2-15);
+        ctx.lineTo(canvas.width/2+250,canvas.height/2-15); ctx.stroke();
+        ctx.restore();
+
+        drawGlowText(`SCORE: ${score}`, canvas.width/2, canvas.height/2+25, '#ffe600', 'bold 26px Orbitron', 'center', 20);
+        drawGlowText(`${timeElapsed} SECONDS SURVIVED`, canvas.width/2, canvas.height/2+62, '#00f0ff', '13px Orbitron', 'center', 10);
+
+        ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='12px Orbitron'; ctx.textAlign='center';
+        ctx.fillText('ALL PLAYERS ELIMINATED', canvas.width/2, canvas.height/2+95);
+    }
+
+    ctx.restore(); // shake restore
+}
+
+/* -------- 루프 -------- */
+function loop() {
+    update(); draw();
+    if (!gameOver) animationId=requestAnimationFrame(loop);
+}
+
+/* -------- 닉네임 입력 엔터키 -------- */
+document.getElementById('nickInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitScore();
+});
+</script>
+</body>
+</html>
